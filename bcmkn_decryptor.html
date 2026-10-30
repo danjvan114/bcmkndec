@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>编程猫 bcmkn 解密器</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .container {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    padding: 40px;
+    max-width: 640px;
+    width: 100%;
+  }
+  h1 {
+    font-size: 24px;
+    color: #333;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .subtitle {
+    text-align: center;
+    color: #888;
+    font-size: 14px;
+    margin-bottom: 30px;
+  }
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .tab {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #666;
+    transition: all 0.2s;
+    background: #fafafa;
+  }
+  .tab.active {
+    border-color: #667eea;
+    background: #667eea;
+    color: #fff;
+  }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .drop-zone {
+    border: 2px dashed #ccc;
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 16px;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: #667eea;
+    background: #f5f7ff;
+  }
+  .drop-zone .icon { font-size: 40px; margin-bottom: 10px; }
+  .drop-zone p { color: #666; font-size: 14px; }
+  .drop-zone .hint { color: #aaa; font-size: 12px; margin-top: 6px; }
+
+  input[type="text"], textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input[type="text"]:focus, textarea:focus {
+    border-color: #667eea;
+  }
+  textarea {
+    min-height: 100px;
+    resize: vertical;
+    margin-bottom: 16px;
+  }
+
+  button.decrypt-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  button.decrypt-btn:hover { opacity: 0.9; }
+  button.decrypt-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .status {
+    margin-top: 20px;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    display: none;
+  }
+  .status.success { display: block; background: #e8f5e9; color: #2e7d32; }
+  .status.error { display: block; background: #ffebee; color: #c62828; }
+  .status.loading { display: block; background: #e3f2fd; color: #1565c0; }
+
+  .result-info {
+    margin-top: 16px;
+    padding: 16px;
+    background: #f5f7ff;
+    border-radius: 8px;
+    display: none;
+  }
+  .result-info.show { display: block; }
+  .result-info h3 { font-size: 14px; color: #333; margin-bottom: 8px; }
+  .result-info .meta { font-size: 13px; color: #666; line-height: 1.8; }
+  .download-btn {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 10px 20px;
+    background: #4caf50;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .download-btn:hover { background: #43a047; }
+
+  .method-box {
+    margin-top: 30px;
+    padding: 16px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #888;
+    line-height: 1.8;
+  }
+  .method-box summary { cursor: pointer; color: #667eea; font-weight: 500; }
+  .method-box code {
+    background: #eee;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🐱 编程猫 bcmkn 解密器</h1>
+  <p class="subtitle">上传 .bcmkn 文件或输入URL，一键解密为 JSON</p>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="file">📁 上传文件</div>
+    <div class="tab" data-tab="url">🔗 URL 输入</div>
+  </div>
+
+  <!-- 文件上传面板 -->
+  <div class="panel active" id="panel-file">
+    <div class="drop-zone" id="dropZone">
+      <div class="icon">📂</div>
+      <p><strong>点击选择</strong> 或拖拽 .bcmkn 文件到此处</p>
+      <p class="hint">支持任意编程猫KittenN作品文件</p>
+      <input type="file" id="fileInput" accept=".bcmkn,.bcmknk,.bcmknh" style="display:none">
+    </div>
+    <button class="decrypt-btn" id="decryptFileBtn" disabled>🔓 开始解密</button>
+  </div>
+
+  <!-- URL面板 -->
+  <div class="panel" id="panel-url">
+    <input type="text" id="urlInput" placeholder="输入 bcmkn 文件的直链URL...">
+    <p style="font-size:12px;color:#999;margin:-8px 0 16px;">⚠️ 注意：跨域(CORS)限制可能导致URL加载失败，建议用上传文件方式</p>
+    <button class="decrypt-btn" id="decryptUrlBtn">🔓 从URL解密</button>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="result-info" id="resultInfo">
+    <h3>✅ 解密成功</h3>
+    <div class="meta" id="resultMeta"></div>
+    <a class="download-btn" id="downloadLink" download="work.decoded.json">⬇️ 下载解密后的 JSON</a>
+  </div>
+
+  <details class="method-box">
+    <summary>🔍 加密方案说明</summary>
+    <p>
+      1. <code>base64字符串整体反转</code> → 标准atob解码<br>
+      2. 解码后 = <code>12字节IV</code> + 密文 + <code>16字节GCM Tag</code><br>
+      3. 算法：<code>AES-256-GCM</code><br>
+      4. 密钥：<code>SHA256(bytes(0x00~0x1e))</code> = <code>4f23c2ca...dd19c4</code>
+    </p>
+  </details>
+</div>
+
+<script>
+// ========== 解密核心逻辑 ==========
+
+async function deriveKey() {
+  // 密钥材料：0x00 ~ 0x1e（共31字节）
+  const keyMaterial = new Uint8Array(31);
+  for (let i = 0; i < 31; i++) keyMaterial[i] = i;
+
+  // SHA-256 派生32字节密钥
+  const hashBuffer = await crypto.subtle.digest('SHA-256', keyMaterial);
+
+  // 导入为 AES-GCM 密钥
+  return crypto.subtle.importKey(
+    'raw',
+    hashBuffer,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['decrypt']
+  );
+}
+
+async function decryptBcmkn(text) {
+  // 1. 反转base64字符串
+  const reversed = text.split('').reverse().join('');
+
+  // 2. atob解码
+  const rawBinary = atob(reversed);
+  const raw = new Uint8Array(rawBinary.length);
+  for (let i = 0; i < rawBinary.length; i++) {
+    raw[i] = rawBinary.charCodeAt(i);
+  }
+
+  // 3. 拆分 IV + 密文 + Tag
+  const iv = raw.slice(0, 12);
+  const ciphertextWithTag = raw.slice(12);
+
+  // 4. AES-256-GCM 解密
+  const key = await deriveKey();
+  const plaintext = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: iv },
+    key,
+    ciphertextWithTag
+  );
+
+  return new Uint8Array(plaintext);
+}
+
+// ========== UI 交互 ==========
+
+const $ = id => document.getElementById(id);
+const dropZone = $('dropZone');
+const fileInput = $('fileInput');
+const statusEl = $('status');
+const resultInfo = $('resultInfo');
+const resultMeta = $('resultMeta');
+const downloadLink = $('downloadLink');
+
+let selectedFile = null;
+
+// Tab切换
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    $(`panel-${tab.dataset.tab}`).classList.add('active');
+  });
+});
+
+// 文件选择
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => {
+  if (e.target.files.length) handleFileSelect(e.target.files[0]);
+});
+
+// 拖拽
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFileSelect(e.dataTransfer.files[0]);
+});
+
+function handleFileSelect(file) {
+  selectedFile = file;
+  dropZone.querySelector('p').innerHTML = `<strong>已选择:</strong> ${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`;
+  $('decryptFileBtn').disabled = false;
+  hideStatus();
+  resultInfo.classList.remove('show');
+}
+
+// 状态提示
+function showStatus(type, msg) {
+  statusEl.className = `status ${type}`;
+  statusEl.textContent = msg;
+}
+function hideStatus() {
+  statusEl.className = 'status';
+}
+
+// 解密文件按钮
+$('decryptFileBtn').addEventListener('click', async () => {
+  if (!selectedFile) return;
+  $('decryptFileBtn').disabled = true;
+  showStatus('loading', '⏳ 正在解密...');
+
+  try {
+    const text = await selectedFile.text();
+    const plaintext = await decryptBcmkn(text);
+
+    await showResult(plaintext, selectedFile.name);
+    showStatus('success', '✅ 解密成功！');
+  } catch (err) {
+    console.error(err);
+    showStatus('error', `❌ 解密失败: ${err.message}`);
+  } finally {
+    $('decryptFileBtn').disabled = false;
+  }
+});
+
+// URL解密按钮
+$('decryptUrlBtn').addEventListener('click', async () => {
+  const url = $('urlInput').value.trim();
+  if (!url) {
+    showStatus('error', '❌ 请输入URL');
+    return;
+  }
+  $('decryptUrlBtn').disabled = true;
+  showStatus('loading', '⏳ 正在从URL加载并解密...');
+
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const text = await resp.text();
+    const plaintext = await decryptBcmkn(text);
+
+    const filename = url.split('/').pop().split('?')[0] || 'work.bcmkn';
+    await showResult(plaintext, filename);
+    showStatus('success', '✅ 解密成功！');
+  } catch (err) {
+    console.error(err);
+    showStatus('error', `❌ 失败: ${err.message}（可能是CORS跨域限制，请改用上传方式）`);
+  } finally {
+    $('decryptUrlBtn').disabled = false;
+  }
+});
+
+// 展示结果
+async function showResult(plaintext, originalName) {
+  // 尝试解析JSON提取元信息
+  let metaHtml = '';
+  try {
+    const json = JSON.parse(new TextDecoder().decode(plaintext));
+    const scenes = Object.keys(json.scenes?.scenesDict || {}).length;
+    let actors = 0;
+    Object.values(json.scenes?.scenesDict || {}).forEach(s => {
+      actors += (s.actorIds || []).length;
+    });
+    metaHtml = `
+      <div><strong>项目名:</strong> ${json.projectName || 'N/A'}</div>
+      <div><strong>场景数:</strong> ${scenes}</div>
+      <div><strong>角色数:</strong> ${actors}</div>
+      <div><strong>原始文件:</strong> ${originalName}</div>
+      <div><strong>解密后大小:</strong> ${(plaintext.length/1024/1024).toFixed(2)} MB</div>
+    `;
+  } catch {
+    metaHtml = `<div><strong>解密后大小:</strong> ${(plaintext.length/1024/1024).toFixed(2)} MB</div>`;
+  }
+  resultMeta.innerHTML = metaHtml;
+
+  // 生成下载链接
+  const blob = new Blob([plaintext], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  downloadLink.href = url;
+  downloadLink.download = originalName.replace(/\.[^.]+$/, '') + '.decoded.json';
+
+  resultInfo.classList.add('show');
+}
+</script>
+
+</body>
+</html>
